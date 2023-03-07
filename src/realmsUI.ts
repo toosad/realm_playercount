@@ -1,3 +1,4 @@
+import { getParcel } from '@decentraland/ParcelIdentity'
 const cataList = [
   'https://interconnected.online',
   'https://peer.decentral.io',
@@ -21,6 +22,8 @@ class UIRealmsSystem {
   realmsName: UIText[] = []
   realmsCount: UIText[] = []
   catalystNames: string[] = []
+  scene = getParcel()
+  parcels: string[] = []
   constructor() {
     this.container.vAlign = 'top'
     this.container.hAlign = 'left'
@@ -29,7 +32,6 @@ class UIRealmsSystem {
     this.container.width = 150
     this.container.height = 120
     this.container.color = Color4.Black()
-    this.container.visible = false
     this.title.value = 'Total users:'
     this.title.positionY = 25
     this.title.positionX = 15
@@ -70,16 +72,23 @@ class UIRealmsSystem {
         realmCount.opacity = 0.7
       }
     }
-    /*     this.text.value = 'text'
-    this.text.positionY = 0
-    this.text.positionX = -10
-    this.text.vTextAlign = 'top'
-    this.text.hTextAlign = 'left'
- */ void this.fetchNames()
+    void this.fetchNames()
+    void executeTask(async () => {
+      const scene = await this.scene
+      const parcels = scene.land.sceneJsonData.scene.parcels
+      const parcelsPlusOne = parcels.map((b) => getAllParcelsAround(b))
+      let parcelsList: string[] = []
+      parcelsList = parcelsList.concat(...parcelsPlusOne)
+      this.parcels = parcelsList.filter(function (item, pos) {
+        return parcelsList.indexOf(item) === pos
+      })
+      await this.fetchStats()
+      this.lastUpdate = 0
+    })
   }
   async update(dt: number) {
     this.lastUpdate += dt
-    if (this.lastUpdate > 5) {
+    if (this.lastUpdate > 20) {
       this.lastUpdate = 0
       await this.fetchStats()
     }
@@ -95,7 +104,7 @@ class UIRealmsSystem {
     )
     const res = stats.map((stat) => {
       const count = stat.parcels
-        .filter((a) => a.parcel.x > -5 && a.parcel.x < 0 && a.parcel.y > -36 && a.parcel.y < -33)
+        .filter((a) => this.parcels.indexOf(`${a.parcel.x},${a.parcel.y}`) !== -1)
         .map((a) => a.peersCount)
       if (!count.length) return 0
       else return count.reduce((a, b) => +a + +b)
@@ -109,7 +118,7 @@ class UIRealmsSystem {
     const sortedList = list
       .filter((a) => a.count > 0)
       .sort((a, b) => {
-        return a.count - b.count
+        return b.count - a.count
       })
     const totalUsers = list.map((a) => a.count).reduce((a, b) => +a + +b)
     this.titleCount.value = `${totalUsers}`
@@ -127,4 +136,15 @@ engine.addSystem(new UIRealmsSystem())
 
 interface Stats {
   parcels: { peersCount: number; parcel: { x: number; y: number } }[]
+}
+
+function getAllParcelsAround(parcel: string): string[] {
+  const [x, y] = parcel.split(',').map((a) => +a)
+  const list: string[] = []
+  for (let indexX = -1; indexX <= 1; indexX++) {
+    for (let indexY = -1; indexY <= 1; indexY++) {
+      list.push(`${x + indexX},${y + indexY}`)
+    }
+  }
+  return list
 }
